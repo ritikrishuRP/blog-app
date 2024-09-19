@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create a Blog Post</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="form-card">
+            <h2>Create a Blog Post</h2>
+            <form id="blogForm">
+                <label for="title">Blog Title:</label>
+                <input type="text" id="title" name="title" required>
+
+                <label for="author">Blog Author:</label>
+                <input type="text" id="author" name="author" required>
+
+                <label for="content">Blog Content:</label>
+                <textarea id="content" name="content" rows="6" required></textarea>
+
+                <button type="submit" style="background-color: yellow" style = "color: white">Submit</button>
+            </form>
+            <p id="successMessage" style="display: none;">Blog created successfully!</p>
+        </div>
+
+        <div id="blogPosts" class="blog-posts"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <script>
+    // Load articles when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        fetchArticles();
+    });
+
+    // Submit blog post using Axios
+    document.getElementById('blogForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        // Get form input values
+        const title = document.getElementById('title').value;
+        const author = document.getElementById('author').value;
+        const content = document.getElementById('content').value;
+
+        const blogging = {
+            title: title,
+            author: author,
+            content: content
+        };
+
+        // Make POST request to create new article
+        axios.post('http://localhost:3000/api/articles', blogging)
+        .then(response => {
+            console.log('Blog created successfully:', response.data);
+            // Clear form input fields
+            document.getElementById('title').value = '';
+            document.getElementById('author').value = '';
+            document.getElementById('content').value = '';
+
+            // Show success message
+            document.getElementById('successMessage').style.display = 'block';
+
+            // Reload the articles list
+            fetchArticles();
+        })
+        .catch(function(error) {
+            console.error("Error creating blog post:", error);
+        });
+    });
+
+    // Function to fetch all articles using Axios
+    function fetchArticles() {
+        axios.get('http://localhost:3000/api/articles')
+        .then(function(response) {
+            const blogPosts = document.getElementById('blogPosts');
+            blogPosts.innerHTML = ''; // Clear the blog posts section
+
+            // Use a for loop to iterate over response.data
+            const articles = response.data;
+            if (Array.isArray(articles)) {
+                for (let i = 0; i < articles.length; i++) {
+                    createBlogCard(articles[i]);
+                }
+            } else {
+                console.error('Response data is not an array:', articles);
+            }
+        })
+        .catch(function(error) {
+            console.error("Error fetching articles:", error);
+        });
+    }
+
+    // Function to create and display a blog card
+    function createBlogCard(article) {
+        const blogCard = document.createElement('div');
+        blogCard.classList.add('blog-card');
+
+        const blogTitle = document.createElement('div');
+        blogTitle.classList.add('blog-title');
+        blogTitle.innerText = article.title;
+
+        const blogAuthor = document.createElement('div');
+        blogAuthor.classList.add('blog-author');
+        blogAuthor.innerText = `Author: ${article.author}`;
+        blogAuthor.style.display = 'none'; // Initially hidden
+
+        const blogContent = document.createElement('div');
+        blogContent.classList.add('blog-content');
+        blogContent.innerText = article.content;
+        blogContent.style.display = 'none'; // Initially hidden
+
+        const commentInput = document.createElement('input');
+        commentInput.type = 'text';
+        commentInput.placeholder = 'Add a comment...';
+
+        const commentButton = document.createElement('button');
+        commentButton.innerText = 'Post Comment';
+
+        const commentsDiv = document.createElement('div');
+        commentsDiv.classList.add('blog-comments');
+        commentsDiv.style.display = 'none'; // Initially hidden
+
+        const commentSection = document.createElement('div');
+        commentSection.classList.add('comment-section');
+        commentSection.appendChild(commentInput);
+        commentSection.appendChild(commentButton);
+        commentSection.style.display = 'none'; // Initially hidden
+
+        // Toggle button to expand/collapse blog card
+        const toggleIcon = document.createElement('span');
+        toggleIcon.classList.add('toggle-icon');
+        toggleIcon.innerHTML = '+';
+        toggleIcon.addEventListener('click', function() {
+            if (blogCard.classList.contains('expanded')) {
+                blogCard.classList.remove('expanded');
+                toggleIcon.innerHTML = '+';
+
+                // Hide blog details and comment section
+                blogAuthor.style.display = 'none';
+                blogContent.style.display = 'none';
+                commentSection.style.display = 'none';
+                commentsDiv.style.display = 'none';
+            } else {
+                blogCard.classList.add('expanded');
+                toggleIcon.innerHTML = '-';
+
+                // Show blog details and comment section
+                blogAuthor.style.display = 'block';
+                blogContent.style.display = 'block';
+                commentSection.style.display = 'flex';
+                commentsDiv.style.display = 'block';
+            }
+        });
+
+        blogCard.appendChild(blogTitle);
+        blogCard.appendChild(toggleIcon);
+        blogCard.appendChild(blogAuthor);
+        blogCard.appendChild(blogContent);
+        blogCard.appendChild(commentSection);
+        blogCard.appendChild(commentsDiv);
+
+        // Add blog card to the blogPosts container
+        document.getElementById('blogPosts').appendChild(blogCard);
+
+        // Add functionality to post comments using Axios
+        commentButton.addEventListener('click', function() {
+            const commentText = commentInput.value;
+
+            if (commentText !== '') {
+                // Make POST request to add a comment
+                axios.post(`http://localhost:3000/api/articles/${article.id}/comments`, {
+                    content: commentText
+                })
+                .then(function(response) {
+                    const comment = response.data;
+                    const commentDiv = document.createElement('div');
+                    commentDiv.innerText = comment.content;
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.innerText = 'Delete';
+                    deleteButton.addEventListener('click', function() {
+                        // Delete comment using Axios
+                        axios.delete(`http://localhost:3000/api/comments/${comment.id}`)
+                        .then(function() {
+                            commentsDiv.removeChild(commentDiv);
+                        })
+                        .catch(function(error) {
+                            console.error("Error deleting comment:", error);
+                        });
+                    });
+
+                    commentDiv.appendChild(deleteButton);
+                    commentsDiv.appendChild(commentDiv);
+                    commentInput.value = '';
+                })
+                .catch(function(error) {
+                    console.error("Error adding comment:", error);
+                });
+            }
+        });
+
+        // Display existing comments
+        if (article.Comments && Array.isArray(article.Comments)) {
+            article.Comments.forEach(comment => {
+                const commentDiv = document.createElement('div');
+                commentDiv.innerText = comment.content;
+
+                const deleteButton = document.createElement('button');
+                deleteButton.innerText = 'Delete';
+                deleteButton.addEventListener('click', function() {
+                    // Delete comment using Axios
+                    axios.delete(`http://localhost:3000/api/comments/${comment.id}`)
+                    .then(function() {
+                        commentsDiv.removeChild(commentDiv);
+                    })
+                    .catch(function(error) {
+                        console.error("Error deleting comment:", error);
+                    });
+                });
+
+                commentDiv.appendChild(deleteButton);
+                commentsDiv.appendChild(commentDiv);
+            });
+        }
+    }
+    </script>
+</body>
+</html>
